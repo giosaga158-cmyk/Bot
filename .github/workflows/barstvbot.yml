@@ -1,4 +1,5 @@
 name: Deploy BARstvbot
+# Triggered after secret configuration and bot hardening
 
 on:
   workflow_dispatch:
