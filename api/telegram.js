@@ -135,14 +135,20 @@ function calcDishResult(text) {
   for (const line of lines.slice(1)) {
     const nums = parseNumbers(line);
     if (nums.length < 2) {
-      return `❗ Не удалось разобрать строку: "${line}"\\n\\nФормат: Ингредиент | цена за 1 кг | граммы по ТТК`;
+      return `❗ Не удалось разобрать строку: "${line}"\n\nФормат: Ингредиент | цена за 1 кг | граммы по ТТК`;
     }
+
     const pricePerKg = nums[nums.length - 2];
     const grams = nums[nums.length - 1];
     if (pricePerKg <= 0 || grams <= 0) {
       return `❗ Проверь строку: "${line}" — цена и количество должны быть больше 0.`;
     }
-    const name = line.replace(/[-]?\d+(?:[.,]\\d+)?/g, "").replace(/[|;,:]+/g, " ").trim();
+
+    const name = line
+      .replace(/[-]?\d+(?:[.,]\d+)?/g, "")
+      .replace(/[|;,:]+/g, " ")
+      .trim();
+
     const cost = pricePerKg * grams / 1000;
     ingredients.push({name: name || "Ингредиент", pricePerKg, grams, cost});
   }
@@ -150,9 +156,11 @@ function calcDishResult(text) {
   const total = ingredients.reduce((sum, x) => sum + x.cost, 0);
   const targetFoodCost = 30;
   const recommendedPrice = total / (targetFoodCost / 100);
-  const rows = ingredients.map(x => `• ${x.name}: ${x.grams} г × ${money(x.pricePerKg)}/кг = ${money(x.cost)}`).join("\n");
+  const rows = ingredients
+    .map(x => `• ${x.name}: ${x.grams} г × ${money(x.pricePerKg)}/кг = ${money(x.cost)}`)
+    .join("\n");
 
-  return `🍽 СЕБЕСТОИМОСТЬ БЛЮДА\\n\\n${dishName}\\n\\n${rows}\\n\\n💵 Себестоимость порции: ${money(total)}\\n🎯 Рекомендуемая продажная цена при Food Cost 30%: ${money(recommendedPrice)}`;
+  return `🍽 СЕБЕСТОИМОСТЬ БЛЮДА\n\n${dishName}\n\n${rows}\n\n💵 Себестоимость порции: ${money(total)}\n🎯 Рекомендуемая продажная цена при Food Cost 30%: ${money(recommendedPrice)}`;
 }
 
 function template(type) {
