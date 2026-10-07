@@ -40,8 +40,9 @@ const MAIN_MENU = {
 
 const CALC_MENU = {
   inline_keyboard: [
-    [{text:"🍸 Food Cost", callback_data:"c_fc"}, {text:"💰 Маржа", callback_data:"c_margin"}],
-    [{text:"👥 ФОТ", callback_data:"c_labor"}, {text:"🎯 Точка безубыточности", callback_data:"c_break"}],
+    [{text:"🧮 Food Cost продукта", callback_data:"c_fc"}, {text:"🍽 Себестоимость блюда", callback_data:"c_dish"}],
+    [{text:"💰 Маржа", callback_data:"c_margin"}, {text:"👥 ФОТ", callback_data:"c_labor"}],
+    [{text:"🎯 Точка безубыточности", callback_data:"c_break"}],
     [{text:"📈 Продажи/час", callback_data:"c_saleshour"}],
     [{text:"◀️ Главное меню", callback_data:"home"}]
   ]
@@ -73,31 +74,42 @@ function pct(n) {
 
 function calculatorPrompt(type) {
   const prompts = {
-    fc: "🧮 FOOD COST\n\nПришли одной строкой два числа:\nвыручка и себестоимость.\n\nНапример: 1000000 300000",
+    fc: "🧮 FOOD COST ПРОДУКТА\n\nВведи название продукта и закупочную цену.\n\nПример:\nЛосось\n1200\n\n📌 Бот рассчитает рекомендуемую продажную цену при Food Cost 30%.",
+    dish: "🍽 СЕБЕСТОИМОСТЬ БЛЮДА\n\nПришли данные одним сообщением.\nПервая строка — название блюда.\nДалее каждый ингредиент с новой строки в формате:\nИнгредиент | цена за 1 кг | количество по ТТК в граммах\n\nПример:\nЦезарь\nКурица | 450 | 120\nСалат | 300 | 80\nСоус | 500 | 40\nСыр | 900 | 20",
     margin: "💰 МАРЖА\n\nПришли цену продажи и себестоимость.\n\nНапример: 500 140",
     labor: "👥 ФОТ\n\nПришли выручку и фонд оплаты труда.\n\nНапример: 1200000 260000",
     break: "🎯 ТОЧКА БЕЗУБЫТОЧНОСТИ\n\nПришли постоянные расходы и переменные расходы в %.\n\nНапример: 400000 32",
     saleshour: "📈 ПРОДАЖИ / ЧАС\n\nПришли выручку и количество отработанных человеко-часов.\n\nНапример: 900000 720"
   };
-  return `${prompts[type]}\n\n⬇️ Ответь на это сообщение цифрами.`;
+  return `${prompts[type]}\n\n⬇️ Ответь на это сообщение.`;
 }
 
 function calcResult(type, nums) {
-  if (nums.length < 2) return "❗ Нужны два числа. Например: 1000000 300000";
+  if (type === "fc") {
+    if (nums.length < 1 || nums[0] <= 0) return "❗ Укажи закупочную цену больше 0. Например: 1200";
+    const cost = nums[0];
+    const targetFoodCost = 30;
+    const salePrice = cost / (targetFoodCost / 100);
+    return `🧮 FOOD COST ПРОДУКТА\n\nЗакупочная цена: ${money(cost)}\nЦелевой Food Cost: ${pct(targetFoodCost)}\n\n💰 Рекомендуемая продажная цена: ${money(salePrice)}\n\n📌 При этой цене Food Cost продукта составит ${pct(cost / salePrice * 100)}.`;
+  }
+
+  if (type === "dish") return "❗ Для расчёта блюда используй формат из сообщения выше.";
+
+  if (nums.length < 2) return "❗ Нужны два числа. Например: 500 140";
   const [a,b] = nums;
   if (a <= 0 || b < 0) return "❗ Проверь значения: первое число должно быть больше 0, второе — неотрицательное.";
 
-  if (type === "fc") {
-    const value = b / a * 100;
-    const verdict = value <= 30 ? "🟢 Хороший уровень." : value <= 35 ? "🟡 Стоит контролировать." : "🔴 Высокий Food Cost — ищем потери.";
-    return `🧮 FOOD COST\n\nВыручка: ${money(a)}\nСебестоимость: ${money(b)}\nFood Cost: ${pct(value)}\n\n${verdict}\n\n🎯 Следующий шаг: проверь рецептуры, списания и закупочные цены.`;
+  if (type === "margin") {
+    const margin = (a-b)/a*100;
+    const markup = b ? (a-b)/b*100 : 0;
+    if (a <= 0 || b >= a) return "❗ Себестоимость должна быть меньше цены продажи.";
+    return `💰 МАРЖА\n\nЦена: ${money(a)}\nСебестоимость: ${money(b)}\nМаржинальность: ${pct(margin)}\nНаценка: ${pct(markup)}\n\n${margin >= 70 ? "🟢 Хороший запас." : margin >= 60 ? "🟡 Нормально, но есть что улучшать." : "🔴 Маржинальность низкая."}`;
   }
   if (type === "margin") {
     if (a <= 0 || b >= a) return "❗ Себестоимость должна быть меньше цены продажи.";
     const margin = (a-b)/a*100;
     const markup = b ? (a-b)/b*100 : 0;
     return `💰 МАРЖА\n\nЦена: ${money(a)}\nСебестоимость: ${money(b)}\nМаржинальность: ${pct(margin)}\nНаценка: ${pct(markup)}\n\n${margin >= 70 ? "🟢 Хороший запас." : margin >= 60 ? "🟡 Нормально, но есть что улучшать." : "🔴 Маржинальность низкая."}`;
-  }
   if (type === "labor") {
     const value = b / a * 100;
     return `👥 LABOR COST\n\nВыручка: ${money(a)}\nФОТ: ${money(b)}\nLabor Cost: ${pct(value)}\n\n${value <= 25 ? "🟢 Контрольный уровень выглядит хорошо." : value <= 30 ? "🟡 Следи за графиками и производительностью." : "🔴 ФОТ заметно давит на экономику."}`;
@@ -113,23 +125,52 @@ function calcResult(type, nums) {
   }
 }
 
+function calcDishResult(text) {
+  const lines = text.split(/\\r?\\n/).map(x => x.trim()).filter(Boolean);
+  if (lines.length < 2) {
+    return "❗ Нужно минимум 2 строки: название блюда и хотя бы один ингредиент.";
+  }
+
+  const dishName = lines[0];
+  const ingredients = [];
+  for (const line of lines.slice(1)) {
+    const nums = parseNumbers(line);
+    if (nums.length < 2) {
+      return `❗ Не удалось разобрать строку: "${line}"\\n\\nФормат: Ингредиент | цена за 1 кг | граммы по ТТК`;
+    }
+    const pricePerKg = nums[nums.length - 2];
+    const grams = nums[nums.length - 1];
+    if (pricePerKg <= 0 || grams <= 0) {
+      return `❗ Проверь строку: "${line}" — цена и количество должны быть больше 0.`;
+    }
+    const name = line.replace(/[-]?\\d+(?:[.,]\\d+)?/g, "").replace(/[|;,:]+/g, " ").trim();
+    const cost = pricePerKg * grams / 1000;
+    ingredients.push({name: name || "Ингредиент", pricePerKg, grams, cost});
+  }
+
+  const total = ingredients.reduce((sum, x) => sum + x.cost, 0);
+  const targetFoodCost = 30;
+  const recommendedPrice = total / (targetFoodCost / 100);
+  const rows = ingredients.map(x => `• ${x.name}: ${x.grams} г × ${money(x.pricePerKg)}/кг = ${money(x.cost)}`).join("\\n");
+
+  return `🍽 СЕБЕСТОИМОСТЬ БЛЮДА\\n\\n${dishName}\\n\\n${rows}\\n\\n💵 Себестоимость порции: ${money(total)}\\n🎯 Рекомендуемая продажная цена при Food Cost 30%: ${money(recommendedPrice)}`;
+}
+
 function template(type) {
   if (type === "fc") return {
     name:"BAR_ACADEMY_Food_Cost.csv",
-    caption:"📊 Food Cost — базовый рабочий шаблон BAR ACADEMY",
+    caption:"🧮 Food Cost продукта — закупочная цена и рекомендуемая продажная цена",
     csv:[
-      "BAR ACADEMY — FOOD COST","","",
-      "Показатель","Значение","Комментарий",
-      "Выручка","1000000","Введите фактическую выручку",
-      "Себестоимость","300000","Введите себестоимость",
-      "Food Cost %","=B5/B4*100","Формула"
+      "BAR ACADEMY — FOOD COST ПРОДУКТА","","",
+      "Продукт","Закупочная цена","Целевой Food Cost","Рекомендуемая продажная цена",
+      "Лосось","1200","30%","=B4/C4"
     ].join("\n")
   };
   if (type === "recipe") return {
-    name:"BAR_ACADEMY_Cocktail_Cost.csv",
-    caption:"🍸 Себестоимость коктейля — шаблон расчёта",
+    name:"BAR_ACADEMY_Dish_Cost.csv",
+    caption:"🍽 Себестоимость блюда — шаблон расчёта по ТТК",
     csv:[
-      "BAR ACADEMY — СЕБЕСТОИМОСТЬ КОКТЕЙЛЯ","","",
+      "BAR ACADEMY — СЕБЕСТОИМОСТЬ БЛЮДА","","",
       "Ингредиент","Количество","Цена за единицу","Стоимость",
       "Алкоголь","","","=B4*C4",
       "Миксер","","","=B5*C5",
@@ -233,7 +274,7 @@ export default async function handler(req, res) {
         await send(chatId, `🎁 БЕСПЛАТНЫЙ ИНСТРУМЕНТ\n\nFood Cost + себестоимость — первый рабочий инструмент BAR ACADEMY.\n\nОткрой:\n${APP_URL}/free-tool`);
       } else if (data.startsWith("c_")) {
         const type = data.slice(2);
-        await send(chatId, calculatorPrompt(type), {force_reply:true, input_field_placeholder:"Например: 1000000 300000"});
+        await send(chatId, calculatorPrompt(type), {force_reply:true, input_field_placeholder:type === "fc" ? "Название продукта и цена" : type === "dish" ? "Название блюда + ингредиенты" : "Введите данные"});
       } else if (data.startsWith("t_")) {
         const t = template(data.slice(2));
         const result = await sendCsv(chatId, t.name, t.csv, t.caption);
@@ -249,8 +290,18 @@ export default async function handler(req, res) {
     const text = (message.text || "").trim();
     const replyText = message.reply_to_message?.text || "";
 
-    if (replyText.includes("🧮 FOOD COST")) {
-      await send(chatId, calcResult("fc", parseNumbers(text)));
+    if (replyText.includes("🧮 FOOD COST ПРОДУКТА")) {
+      const lines = text.split(/\\r?\\n/).map(x => x.trim()).filter(Boolean);
+      const nums = parseNumbers(text);
+      if (lines.length < 2 && nums.length < 1) {
+        await send(chatId, "❗ Укажи название продукта и закупочную цену. Например:\\nЛосось\\n1200");
+      } else {
+        await send(chatId, calcResult("fc", nums));
+      }
+      return res.status(200).json({ok:true});
+    }
+    if (replyText.includes("🍽 СЕБЕСТОИМОСТЬ БЛЮДА")) {
+      await send(chatId, calcDishResult(text));
       return res.status(200).json({ok:true});
     }
     if (replyText.includes("💰 МАРЖА")) {
