@@ -30,7 +30,7 @@ export default async function handler(req, res) {
       if (data === "free") {
         await telegram("sendMessage", {
           chat_id: chatId,
-          text: "🎁 Бесплатный инструмент BAR ACADEMY\n\nСебестоимость + Food Cost — практический инструмент для контроля показателей бара и ресторана.\n\n👇 Открой бесплатный инструмент:\n${process.env.APP_URL || `https://${req.headers.host}`}/free-tool"
+          text: `🎁 Бесплатный инструмент BAR ACADEMY\n\nСебестоимость + Food Cost — практический инструмент для контроля показателей бара и ресторана.\n\n👇 Открой бесплатный инструмент:\n${process.env.APP_URL || `https://${req.headers.host}`}/free-tool`
         });
       } else if (data === "catalog") {
         await telegram("sendMessage", {
