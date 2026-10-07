@@ -11,7 +11,15 @@ async function telegram(method, body) {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(200).json({ok:true, service:"Barstvbot", telegramTokenConfigured:Boolean(TELEGRAM_TOKEN)});
+  if (req.method !== "POST") {
+    if (!TELEGRAM_TOKEN) return res.status(500).json({ok:false, service:"Barstvbot", telegramTokenConfigured:false});
+    try {
+      const me = await telegram("getMe", {});
+      return res.status(me.ok ? 200 : 500).json({ok:me.ok, service:"Barstvbot", telegramTokenConfigured:true, telegramTokenValid:me.ok, bot:me.result?.username || null});
+    } catch (e) {
+      return res.status(500).json({ok:false, service:"Barstvbot", telegramTokenConfigured:true, telegramTokenValid:false});
+    }
+  }
   if (!TELEGRAM_TOKEN) return res.status(500).json({ok:false,error:"TELEGRAM_BOT_TOKEN is not configured"});
   if (WEBHOOK_SECRET && req.headers["x-telegram-bot-api-secret-token"] !== WEBHOOK_SECRET) return res.status(401).json({ok:false});
 
