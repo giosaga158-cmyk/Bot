@@ -1,5 +1,5 @@
 name: Deploy BARstvbot
-# Triggered after secret configuration and bot hardening
+# Automatic production deployment for BAR ACADEMY
 
 on:
   workflow_dispatch:
@@ -22,24 +22,17 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$VERCEL_TOKEN"
-
           npm install --global vercel@latest
-
           OUTPUT=$(vercel deploy --prod --yes \
             --token "$VERCEL_TOKEN" \
             --env "TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN" \
             --name barstvbot 2>&1 | tee /tmp/vercel.log)
-
-          URL=$(printf '%s\n' "$OUTPUT" \
-            | grep -Eo 'https://[A-Za-z0-9._-]+\.vercel\.app' \
-            | tail -1)
-
+          URL=$(printf '%s\n' "$OUTPUT" | grep -Eo 'https://[A-Za-z0-9._-]+\.vercel\.app' | tail -1)
           if [ -z "$URL" ]; then
             echo "Could not detect Vercel deployment URL"
             cat /tmp/vercel.log
             exit 1
           fi
-
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "Deployed: $URL"
 
@@ -51,6 +44,28 @@ jobs:
           RESPONSE=$(curl --fail-with-body -sS "${DEPLOY_URL}/api/telegram")
           echo "$RESPONSE"
           echo "$RESPONSE" | grep -q '"telegramTokenValid":true'
+          echo "$RESPONSE" | grep -q '"bot":"Barstvbot"'
+
+      - name: Configure Telegram commands
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: |
+          set -euo pipefail
+          curl --fail-with-body -sS -X POST \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setMyCommands" \
+            -H "content-type: application/json" \
+            --data '{"commands":[{"command":"start","description":"Главное меню BAR ACADEMY"},{"command":"calc","description":"Калькуляторы"},{"command":"library","description":"Таблицы и библиотека"},{"command":"diagnostic","description":"Быстрая диагностика"},{"command":"feedback","description":"Обратная связь"},{"command":"help","description":"Помощь"}]}'
+
+      - name: Verify Telegram commands
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: |
+          set -euo pipefail
+          COMMANDS=$(curl --fail-with-body -sS \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMyCommands")
+          echo "$COMMANDS"
+          echo "$COMMANDS" | grep -q '"calc"'
+          echo "$COMMANDS" | grep -q '"library"'
 
       - name: Configure Telegram webhook
         env:
@@ -59,9 +74,7 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$TELEGRAM_BOT_TOKEN"
-
-          curl --fail-with-body -sS \
-            -X POST \
+          curl --fail-with-body -sS -X POST \
             "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
             -d "url=${DEPLOY_URL}/api/telegram"
 
@@ -70,6 +83,5 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         run: |
           set -euo pipefail
-
           curl --fail-with-body -sS \
             "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo"
