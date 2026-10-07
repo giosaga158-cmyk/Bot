@@ -11,12 +11,15 @@ async function telegram(method, body) {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(200).json({ok:true, service:"Barstvbot"});
+  if (req.method !== "POST") return res.status(200).json({ok:true, service:"Barstvbot", telegramTokenConfigured:Boolean(TELEGRAM_TOKEN)});
   if (!TELEGRAM_TOKEN) return res.status(500).json({ok:false,error:"TELEGRAM_BOT_TOKEN is not configured"});
   if (WEBHOOK_SECRET && req.headers["x-telegram-bot-api-secret-token"] !== WEBHOOK_SECRET) return res.status(401).json({ok:false});
 
   try {
-    const update = req.body || {};
+    let update = req.body || {};
+    if (typeof update === "string") {
+      try { update = JSON.parse(update); } catch { update = {}; }
+    }
     const callback = update.callback_query;
 
     if (callback) {
@@ -27,7 +30,7 @@ export default async function handler(req, res) {
       if (data === "free") {
         await telegram("sendMessage", {
           chat_id: chatId,
-          text: "🎁 Бесплатный инструмент BAR ACADEMY\n\nСебестоимость + Food Cost — практический инструмент для контроля показателей бара и ресторана.\n\n👇 Открой бесплатный инструмент:\nhttps://barstvbot.vercel.app/free-tool"
+          text: "🎁 Бесплатный инструмент BAR ACADEMY\n\nСебестоимость + Food Cost — практический инструмент для контроля показателей бара и ресторана.\n\n👇 Открой бесплатный инструмент:\n${process.env.APP_URL || `https://${req.headers.host}`}/free-tool"
         });
       } else if (data === "catalog") {
         await telegram("sendMessage", {
