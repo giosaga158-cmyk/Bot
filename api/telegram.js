@@ -51,7 +51,7 @@ const CALC_MENU = {
 const LIBRARY_MENU = {
   inline_keyboard: [
     [{text:"📊 Food Cost", callback_data:"t_fc"}],
-    [{text:"🍸 Себестоимость коктейля", callback_data:"t_recipe"}],
+    [{text:"🍽 Себестоимость блюда", callback_data:"t_recipe"}],
     [{text:"👥 ФОТ / Labor Cost", callback_data:"t_labor"}],
     [{text:"📈 KPI сотрудника", callback_data:"t_kpi"}],
     [{text:"📋 Чек-лист открытия бара", callback_data:"t_open"}],
@@ -100,33 +100,32 @@ function calcResult(type, nums) {
   if (a <= 0 || b < 0) return "❗ Проверь значения: первое число должно быть больше 0, второе — неотрицательное.";
 
   if (type === "margin") {
+    if (b >= a) return "❗ Себестоимость должна быть меньше цены продажи.";
     const margin = (a-b)/a*100;
     const markup = b ? (a-b)/b*100 : 0;
-    if (a <= 0 || b >= a) return "❗ Себестоимость должна быть меньше цены продажи.";
     return `💰 МАРЖА\n\nЦена: ${money(a)}\nСебестоимость: ${money(b)}\nМаржинальность: ${pct(margin)}\nНаценка: ${pct(markup)}\n\n${margin >= 70 ? "🟢 Хороший запас." : margin >= 60 ? "🟡 Нормально, но есть что улучшать." : "🔴 Маржинальность низкая."}`;
   }
-  if (type === "margin") {
-    if (a <= 0 || b >= a) return "❗ Себестоимость должна быть меньше цены продажи.";
-    const margin = (a-b)/a*100;
-    const markup = b ? (a-b)/b*100 : 0;
-    return `💰 МАРЖА\n\nЦена: ${money(a)}\nСебестоимость: ${money(b)}\nМаржинальность: ${pct(margin)}\nНаценка: ${pct(markup)}\n\n${margin >= 70 ? "🟢 Хороший запас." : margin >= 60 ? "🟡 Нормально, но есть что улучшать." : "🔴 Маржинальность низкая."}`;
+
   if (type === "labor") {
     const value = b / a * 100;
     return `👥 LABOR COST\n\nВыручка: ${money(a)}\nФОТ: ${money(b)}\nLabor Cost: ${pct(value)}\n\n${value <= 25 ? "🟢 Контрольный уровень выглядит хорошо." : value <= 30 ? "🟡 Следи за графиками и производительностью." : "🔴 ФОТ заметно давит на экономику."}`;
   }
+
   if (type === "break") {
     if (b >= 100) return "❗ Переменные расходы должны быть меньше 100%.";
     const revenue = a / (1-b/100);
     return `🎯 ТОЧКА БЕЗУБЫТОЧНОСТИ\n\nПостоянные расходы: ${money(a)}\nПеременные расходы: ${pct(b)}\n\nМинимальная выручка: ${money(revenue)}\n\n📌 Ниже этой выручки бизнес работает в зоне убытка.`;
   }
+
   if (type === "saleshour") {
+    if (b <= 0) return "❗ Количество человеко-часов должно быть больше 0.";
     const value = a / b;
     return `📈 ПРОДАЖИ / ЧАС\n\nВыручка: ${money(a)}\nЧеловеко-часы: ${b}\n\nВыручка на 1 человеко-час: ${money(value)}\n\n💡 Используй показатель для сравнения смен и оценки эффективности графика.`;
   }
 }
 
 function calcDishResult(text) {
-  const lines = text.split(/\\r?\\n/).map(x => x.trim()).filter(Boolean);
+  const lines = text.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
   if (lines.length < 2) {
     return "❗ Нужно минимум 2 строки: название блюда и хотя бы один ингредиент.";
   }
@@ -143,7 +142,7 @@ function calcDishResult(text) {
     if (pricePerKg <= 0 || grams <= 0) {
       return `❗ Проверь строку: "${line}" — цена и количество должны быть больше 0.`;
     }
-    const name = line.replace(/[-]?\\d+(?:[.,]\\d+)?/g, "").replace(/[|;,:]+/g, " ").trim();
+    const name = line.replace(/[-]?\d+(?:[.,]\\d+)?/g, "").replace(/[|;,:]+/g, " ").trim();
     const cost = pricePerKg * grams / 1000;
     ingredients.push({name: name || "Ингредиент", pricePerKg, grams, cost});
   }
@@ -151,7 +150,7 @@ function calcDishResult(text) {
   const total = ingredients.reduce((sum, x) => sum + x.cost, 0);
   const targetFoodCost = 30;
   const recommendedPrice = total / (targetFoodCost / 100);
-  const rows = ingredients.map(x => `• ${x.name}: ${x.grams} г × ${money(x.pricePerKg)}/кг = ${money(x.cost)}`).join("\\n");
+  const rows = ingredients.map(x => `• ${x.name}: ${x.grams} г × ${money(x.pricePerKg)}/кг = ${money(x.cost)}`).join("\n");
 
   return `🍽 СЕБЕСТОИМОСТЬ БЛЮДА\\n\\n${dishName}\\n\\n${rows}\\n\\n💵 Себестоимость порции: ${money(total)}\\n🎯 Рекомендуемая продажная цена при Food Cost 30%: ${money(recommendedPrice)}`;
 }
@@ -291,10 +290,10 @@ export default async function handler(req, res) {
     const replyText = message.reply_to_message?.text || "";
 
     if (replyText.includes("🧮 FOOD COST ПРОДУКТА")) {
-      const lines = text.split(/\\r?\\n/).map(x => x.trim()).filter(Boolean);
+      const lines = text.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
       const nums = parseNumbers(text);
       if (lines.length < 2 && nums.length < 1) {
-        await send(chatId, "❗ Укажи название продукта и закупочную цену. Например:\\nЛосось\\n1200");
+        await send(chatId, "❗ Укажи название продукта и закупочную цену. Например:\nЛосось\\n1200");
       } else {
         await send(chatId, calcResult("fc", nums));
       }
