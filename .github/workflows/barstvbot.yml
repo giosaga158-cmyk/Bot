@@ -43,6 +43,15 @@ jobs:
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "Deployed: $URL"
 
+      - name: Smoke test Telegram runtime
+        env:
+          DEPLOY_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          set -euo pipefail
+          RESPONSE=$(curl --fail-with-body -sS "${DEPLOY_URL}/api/telegram")
+          echo "$RESPONSE"
+          echo "$RESPONSE" | grep -q '"telegramTokenValid":true'
+
       - name: Configure Telegram webhook
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
