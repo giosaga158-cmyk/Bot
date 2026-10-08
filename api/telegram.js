@@ -40,7 +40,7 @@ const MAIN_MENU = {
 
 const CALC_MENU = {
   inline_keyboard: [
-    [{text:"🧮 Food Cost продукта", callback_data:"c_fc"}, {text:"🍽 Себестоимость блюда", callback_data:"c_dish"}],
+    [{text:"🧮 Food Cost / блюдо", callback_data:"c_fc"}, {text:"🍽 Себестоимость блюда", callback_data:"c_dish"}],
     [{text:"💰 Маржа", callback_data:"c_margin"}, {text:"👥 ФОТ", callback_data:"c_labor"}],
     [{text:"🎯 Точка безубыточности", callback_data:"c_break"}],
     [{text:"📈 Продажи/час", callback_data:"c_saleshour"}],
@@ -53,7 +53,7 @@ const LIBRARY_MENU = {
     [{text:"📊 Food Cost", callback_data:"t_fc"}],
     [{text:"🍽 Себестоимость блюда", callback_data:"t_recipe"}],
     [{text:"👥 ФОТ / Labor Cost", callback_data:"t_labor"}],
-    [{text:"📈 KPI сотрудника", callback_data:"t_kpi"}],
+    [{text:"📈 KPI — план/факт", callback_data:"t_kpi"}],
     [{text:"📋 Чек-лист открытия бара", callback_data:"t_open"}],
     [{text:"🧾 Инвентаризация", callback_data:"t_inventory"}],
     [{text:"◀️ Главное меню", callback_data:"home"}]
@@ -74,7 +74,7 @@ function pct(n) {
 
 function calculatorPrompt(type) {
   const prompts = {
-    fc: "🧮 FOOD COST ПРОДУКТА\n\nВведи название продукта и закупочную цену.\n\nПример:\nЛосось\n1200\n\n📌 Бот рассчитает рекомендуемую продажную цену при Food Cost 30%.",
+    fc: "🧮 FOOD COST / СЕБЕСТОИМОСТЬ\n\nЭто полноценный калькулятор по ТТК.\n\n1️⃣ Первая строка — название блюда или напитка.\n2️⃣ Далее каждый ингредиент:\nИнгредиент | цена за 1 кг или 1 л | количество | единица\n\nПример блюда:\nЦезарь\nКурица | 450 | 120 | г\nСалат | 300 | 80 | г\nСоус | 500 | 40 | г\nСыр | 900 | 20 | г\n\nПример напитка:\nЛимонад Манго\nПюре манго | 650 | 50 | мл\nСироп | 500 | 20 | мл\nСок лимона | 180 | 30 | мл\n\n📌 Бот пересчитает стоимость каждого ингредиента по фактической граммовке/объёму, сложит всё и покажет рекомендуемую цену при Food Cost 30%.",
     dish: "🍽 СЕБЕСТОИМОСТЬ БЛЮДА\n\nПришли данные одним сообщением.\nПервая строка — название блюда.\nДалее каждый ингредиент с новой строки в формате:\nИнгредиент | цена за 1 кг | количество по ТТК в граммах\n\nПример:\nЦезарь\nКурица | 450 | 120\nСалат | 300 | 80\nСоус | 500 | 40\nСыр | 900 | 20",
     margin: "💰 МАРЖА\n\nПришли цену продажи и себестоимость.\n\nНапример: 500 140",
     labor: "👥 ФОТ\n\nПришли выручку и фонд оплаты труда.\n\nНапример: 1200000 260000",
@@ -85,13 +85,7 @@ function calculatorPrompt(type) {
 }
 
 function calcResult(type, nums) {
-  if (type === "fc") {
-    if (nums.length < 1 || nums[0] <= 0) return "❗ Укажи закупочную цену больше 0. Например: 1200";
-    const cost = nums[0];
-    const targetFoodCost = 30;
-    const salePrice = cost / (targetFoodCost / 100);
-    return `🧮 FOOD COST ПРОДУКТА\n\nЗакупочная цена: ${money(cost)}\nЦелевой Food Cost: ${pct(targetFoodCost)}\n\n💰 Рекомендуемая продажная цена: ${money(salePrice)}\n\n📌 При этой цене Food Cost продукта составит ${pct(cost / salePrice * 100)}.`;
-  }
+  if (type === "fc") return "❗ Для Food Cost используй формат блюда/напитка из сообщения выше.";
 
   if (type === "dish") return "❗ Для расчёта блюда используй формат из сообщения выше.";
 
@@ -127,40 +121,43 @@ function calcResult(type, nums) {
 function calcDishResult(text) {
   const lines = text.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
   if (lines.length < 2) {
-    return "❗ Нужно минимум 2 строки: название блюда и хотя бы один ингредиент.";
+    return "❗ Нужно минимум 2 строки: название блюда/напитка и хотя бы один ингредиент.";
   }
 
   const dishName = lines[0];
   const ingredients = [];
+
   for (const line of lines.slice(1)) {
-    const nums = parseNumbers(line);
-    if (nums.length < 2) {
-      return `❗ Не удалось разобрать строку: "${line}"\n\nФормат: Ингредиент | цена за 1 кг | граммы по ТТК`;
+    const parts = line.split("|").map(x => x.trim());
+    if (parts.length < 4) {
+      return \`❗ Не удалось разобрать строку: "\${line}"\n\nФормат:\nИнгредиент | цена за 1 кг/1 л | количество | г/мл\`;
     }
 
-    const pricePerKg = nums[nums.length - 2];
-    const grams = nums[nums.length - 1];
-    if (pricePerKg <= 0 || grams <= 0) {
-      return `❗ Проверь строку: "${line}" — цена и количество должны быть больше 0.`;
+    const name = parts[0] || "Ингредиент";
+    const pricePerUnit = Number((parts[1] || "").replace(",", ".").replace(/\s/g, ""));
+    const quantity = Number((parts[2] || "").replace(",", ".").replace(/\s/g, ""));
+    const unit = parts[3].toLowerCase().replace(".", "");
+
+    if (!["г", "гр", "грамм", "граммы", "мл", "миллилитр", "миллилитры"].includes(unit)) {
+      return \`❗ Для "\${name}" укажи единицу только "г" или "мл".\`;
+    }
+    if (!Number.isFinite(pricePerUnit) || pricePerUnit <= 0 || !Number.isFinite(quantity) || quantity <= 0) {
+      return \`❗ Проверь строку: "\${line}" — цена и количество должны быть больше 0.\`;
     }
 
-    const name = line
-      .replace(/[-]?\d+(?:[.,]\d+)?/g, "")
-      .replace(/[|;,:]+/g, " ")
-      .trim();
-
-    const cost = pricePerKg * grams / 1000;
-    ingredients.push({name: name || "Ингредиент", pricePerKg, grams, cost});
+    const normalizedUnit = unit.startsWith("м") ? "мл" : "г";
+    const cost = pricePerUnit * quantity / 1000;
+    ingredients.push({name, pricePerUnit, quantity, unit: normalizedUnit, cost});
   }
 
   const total = ingredients.reduce((sum, x) => sum + x.cost, 0);
   const targetFoodCost = 30;
   const recommendedPrice = total / (targetFoodCost / 100);
   const rows = ingredients
-    .map(x => `• ${x.name}: ${x.grams} г × ${money(x.pricePerKg)}/кг = ${money(x.cost)}`)
+    .map((x, i) => \`\${i + 1}. \${x.name} — \${x.quantity} \${x.unit} × \${money(x.pricePerUnit)}/\${x.unit === "г" ? "кг" : "л"} = \${money(x.cost)}\`)
     .join("\n");
 
-  return `🍽 СЕБЕСТОИМОСТЬ БЛЮДА\n\n${dishName}\n\n${rows}\n\n💵 Себестоимость порции: ${money(total)}\n🎯 Рекомендуемая продажная цена при Food Cost 30%: ${money(recommendedPrice)}`;
+  return \`🧮 FOOD COST / СЕБЕСТОИМОСТЬ\n\n🍽 \${dishName}\n\n\${rows}\n\n━━━━━━━━━━━━━━\n💵 Себестоимость: \${money(total)}\n🎯 Целевой Food Cost: \${pct(targetFoodCost)}\n💰 Рекомендуемая цена: \${money(recommendedPrice)}\n\n📌 Расчёт выполнен по фактическому количеству каждого ингредиента из ТТК.\`;
 }
 
 function template(type) {
@@ -199,12 +196,18 @@ function template(type) {
   };
   if (type === "kpi") return {
     name:"BAR_ACADEMY_KPI.csv",
-    caption:"📈 KPI сотрудника — базовый шаблон",
+    caption:"📈 KPI сотрудника — план → факт → выполнение → баллы → итоговая оценка",
     csv:[
-      "Сотрудник","Выручка","Часы","Выручка/час","KPI",
-      "Бармен 1","300000","160","=B2/C2","",
-      "Бармен 2","350000","176","=B3/C3",""
-    ].join("\n")
+      "BAR ACADEMY — KPI СОТРУДНИКА","","","","","","","","",
+      "Как пользоваться: внеси сотрудника, период, план и факт. Таблица покажет выполнение KPI и итоговый балл.","","","","","","","","",
+      "Сотрудник","Период","Показатель","План","Факт","Выполнение %","Вес %","Баллы","Комментарий",
+      "Бармен 1","Октябрь","Выручка","300000","315000","=IF(D4=0,0,E4/D4*100)","40","=MIN(F4,100)*G4/100","Больше = лучше",
+      "Бармен 1","Октябрь","Средний чек","1800","1950","=IF(D5=0,0,E5/D5*100)","20","=MIN(F5,100)*G5/100","Больше = лучше",
+      "Бармен 1","Октябрь","Food Cost %","30","28","=IF(E6=0,0,D6/E6*100)","20","=MIN(F6,100)*G6/100","Меньше = лучше",
+      "Бармен 1","Октябрь","Ошибки / рекламации","5","2","=IF(E7=0,0,D7/E7*100)","20","=MIN(F7,100)*G7/100","Меньше = лучше",
+      "","","","","","ИТОГО KPI","","=SUM(H4:H7)","Максимум 100 баллов",
+      "","","","","","ИТОГОВАЯ ОЦЕНКА","","=IF(H8>=90,\\\"A — отлично\\\",IF(H8>=75,\\\"B — хорошо\\\",IF(H8>=60,\\\"C — требует внимания\\\",\\\"D — критично\\\")))",""
+    ].join("\\n")
   };
   if (type === "open") return {
     name:"BAR_ACADEMY_Opening_Checklist.csv",
@@ -297,14 +300,8 @@ export default async function handler(req, res) {
     const text = (message.text || "").trim();
     const replyText = message.reply_to_message?.text || "";
 
-    if (replyText.includes("🧮 FOOD COST ПРОДУКТА")) {
-      const lines = text.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
-      const nums = parseNumbers(text);
-      if (lines.length < 2 && nums.length < 1) {
-        await send(chatId, "❗ Укажи название продукта и закупочную цену. Например:\nЛосось\\n1200");
-      } else {
-        await send(chatId, calcResult("fc", nums));
-      }
+    if (replyText.includes("🧮 FOOD COST / СЕБЕСТОИМОСТЬ")) {
+      await send(chatId, calcDishResult(text));
       return res.status(200).json({ok:true});
     }
     if (replyText.includes("🍽 СЕБЕСТОИМОСТЬ БЛЮДА")) {
