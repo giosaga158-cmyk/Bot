@@ -159,7 +159,6 @@ function calcDishResult(text) {
 
   return \`🧮 FOOD COST / СЕБЕСТОИМОСТЬ\n\n🍽 \${dishName}\n\n\${rows}\n\n━━━━━━━━━━━━━━\n💵 Себестоимость: \${money(total)}\n🎯 Целевой Food Cost: \${pct(targetFoodCost)}\n💰 Рекомендуемая цена: \${money(recommendedPrice)}\n\n📌 Расчёт выполнен по фактическому количеству каждого ингредиента из ТТК.\`;
 }
-
 function template(type) {
   if (type === "fc") return {
     name:"BAR_ACADEMY_Food_Cost.csv",
