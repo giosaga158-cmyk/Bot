@@ -43,8 +43,19 @@ jobs:
           set -euo pipefail
           RESPONSE=$(curl --fail-with-body -sS "${DEPLOY_URL}/api/telegram")
           echo "$RESPONSE"
-          echo "$RESPONSE" | grep -q '"telegramTokenValid":true'
-          echo "$RESPONSE" | grep -q '"bot":"Barstvbot"'
+          echo "$RESPONSE" | grep -q '"telegramTokenConfigured":true'
+          echo "$RESPONSE" | grep -q '"webhookHandler":true'
+
+      - name: Verify Telegram bot token
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: |
+          set -euo pipefail
+          ME=$(curl --fail-with-body -sS \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe")
+          echo "$ME"
+          echo "$ME" | grep -q '"ok":true'
+          echo "$ME" | grep -q '"username":"Barstvbot"'
 
       - name: Configure Telegram commands
         env:
