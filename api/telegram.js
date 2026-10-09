@@ -130,7 +130,7 @@ function calcDishResult(text) {
   for (const line of lines.slice(1)) {
     const parts = line.split("|").map(x => x.trim());
     if (parts.length < 4) {
-      return \`❗ Не удалось разобрать строку: "\${line}"\n\nФормат:\nИнгредиент | цена за 1 кг/1 л | количество | г/мл\`;
+      return `❗ Не удалось разобрать строку: "${line}"\n\nФормат:\nИнгредиент | цена за 1 кг/1 л | количество | г/мл`;
     }
 
     const name = parts[0] || "Ингредиент";
@@ -139,10 +139,10 @@ function calcDishResult(text) {
     const unit = parts[3].toLowerCase().replace(".", "");
 
     if (!["г", "гр", "грамм", "граммы", "мл", "миллилитр", "миллилитры"].includes(unit)) {
-      return \`❗ Для "\${name}" укажи единицу только "г" или "мл".\`;
+      return `❗ Для "${name}" укажи единицу только "г" или "мл".`;
     }
     if (!Number.isFinite(pricePerUnit) || pricePerUnit <= 0 || !Number.isFinite(quantity) || quantity <= 0) {
-      return \`❗ Проверь строку: "\${line}" — цена и количество должны быть больше 0.\`;
+      return `❗ Проверь строку: "${line}" — цена и количество должны быть больше 0.`;
     }
 
     const normalizedUnit = unit.startsWith("м") ? "мл" : "г";
@@ -154,10 +154,10 @@ function calcDishResult(text) {
   const targetFoodCost = 30;
   const recommendedPrice = total / (targetFoodCost / 100);
   const rows = ingredients
-    .map((x, i) => \`\${i + 1}. \${x.name} — \${x.quantity} \${x.unit} × \${money(x.pricePerUnit)}/\${x.unit === "г" ? "кг" : "л"} = \${money(x.cost)}\`)
+    .map((x, i) => `${i + 1}. ${x.name} — ${x.quantity} ${x.unit} × ${money(x.pricePerUnit)}/${x.unit === "г" ? "кг" : "л"} = ${money(x.cost)}`)
     .join("\n");
 
-  return \`🧮 FOOD COST / СЕБЕСТОИМОСТЬ\n\n🍽 \${dishName}\n\n\${rows}\n\n━━━━━━━━━━━━━━\n💵 Себестоимость: \${money(total)}\n🎯 Целевой Food Cost: \${pct(targetFoodCost)}\n💰 Рекомендуемая цена: \${money(recommendedPrice)}\n\n📌 Расчёт выполнен по фактическому количеству каждого ингредиента из ТТК.\`;
+  return `🧮 FOOD COST / СЕБЕСТОИМОСТЬ\n\n🍽 ${dishName}\n\n${rows}\n\n━━━━━━━━━━━━━━\n💵 Себестоимость: ${money(total)}\n🎯 Целевой Food Cost: ${pct(targetFoodCost)}\n💰 Рекомендуемая цена: ${money(recommendedPrice)}\n\n📌 Расчёт выполнен по фактическому количеству каждого ингредиента из ТТК.`;
 }
 function template(type) {
   if (type === "fc") return {
